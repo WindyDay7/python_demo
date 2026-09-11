@@ -3,3 +3,5 @@
 data/
 docs/.DS_Store
 data/nyc_taxi_2M.csv
+artifacts/
+tmp/
