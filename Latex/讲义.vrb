@@ -1,0 +1,33 @@
+\frametitle{技术全景大闭环: 从底层硬件连续到业务价值变现}\framesubtitle {模块七: 技术全景收敛（第 25 页）}
+\begin{columns}[T]
+    \column{0.54\textwidth}
+    \textbf{【把整门课串成一条链】}
+    \begin{itemize}
+        \item \textbf{NumPy 解决物理吞吐}: 连续 Buffer、Strides 步长、SIMD 硬件加速颠覆原生低效循环.
+        \item \textbf{Pandas 赋能业务语义}: Index 自动对齐、列 Schema、缺失防御与关系代数透视.
+        \item \textbf{文本微调突破非结构化}: MiniRBT 语义编码、交叉熵 Loss、反向责任溯源与稳健更新.
+        \item \textbf{ONNX 实现工业闭环}: 计算图静态化、算子融合、INT8 动态量化驱动极速高并发 Serving.
+        \item \textbf{工程师真正壁垒}: 深刻理解每一行代码在物理内存和硬件流水线中的真实代价, 优雅权衡开发效率、延迟与精度.
+    \end{itemize}
+
+    \column{0.44\textwidth}
+    \textbf{【全课程端到端拓扑】}
+    \diagrambox{
+    \textbf{现实业务需求} (结构化大数据 / 非结构化文本)\\
+    |-- 存储基石 : Parquet 列式二进制 (谓词下推/跳读)\\
+    |-- 计算内核 : NumPy (连续内存 / 步长 / 广播 / SIMD)\\
+    |-- 业务语义 : Pandas (Index 对齐 / 关系代数)\\
+    |-- 文本微调 : MiniRBT (分层抽样 / 交叉熵 / AdamW)\\
+    \-- 工业部署 : ONNX Runtime (INT8量化 / 极速Serving)
+    }
+    \vspace{1mm}
+\begin{lstlisting}
+# 结构化分析 / 模型更新 / 部署交付
+df.query("amt > 0").groupby("hour")["amt"].transform("mean")
+loss = model(**batch).loss; loss.backward(); optimizer.step()
+quantize_dynamic("m.onnx", "m.int8.onnx"); session.run(None, inputs)
+\end{lstlisting}
+    \begin{alertblock}{课程收束}
+        \scriptsize Python 是这个时代的胶水, 而你们今天掌握的, 是这瓶胶水里最硬核的骨架与灵魂.带着对底层内存的敬畏去征服生产系统！
+    \end{alertblock}
+\end{columns}

@@ -1,0 +1,7 @@
+\beamer@sectionintoc {1}{思维跃迁: 工程开发到矩阵思维}{4}{0}{1}
+\beamer@sectionintoc {2}{NumPy 底层解密: 不仅是更快的列表}{7}{0}{2}
+\beamer@sectionintoc {3}{Pandas 核心基石: 业务语义与关系代数}{12}{0}{3}
+\beamer@sectionintoc {4}{业务实战五问: 以 200 万纽约出租车订单为例}{14}{0}{4}
+\beamer@sectionintoc {5}{文本分析进阶: 小模型意图识别微调}{19}{0}{5}
+\beamer@sectionintoc {6}{工程落地: 模型轻量化导出、量化与部署推理}{24}{0}{6}
+\beamer@sectionintoc {7}{课程全景收敛与架构总结}{28}{0}{7}

@@ -6,3 +6,5 @@ data/nyc_taxi_2M.csv
 artifacts/
 tmp/
 **/artifacts/
+**/__pycache__/
+latex.*

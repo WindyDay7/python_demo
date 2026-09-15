@@ -28,6 +28,10 @@ class SequenceClassifierExportWrapper(torch.nn.Module):
         attention_mask: torch.Tensor,
         token_type_ids: torch.Tensor | None = None,
     ) -> torch.Tensor:
+        # Hugging Face SequenceClassification 模型默认返回的是一个包含 loss、logits 等字段
+        # 的 ModelOutput 对象，而 torch.onnx.export 更适合导出“张量到张量”的稳定接口。
+        # 这个 wrapper 的作用就是把复杂对象压平成纯 logits 输出，确保 ONNX 图的输入输出
+        # 语义简单明确，方便后续 onnxruntime 侧直接调用。
         model_inputs: dict[str, torch.Tensor] = {
             "input_ids": input_ids,
             "attention_mask": attention_mask,
@@ -111,6 +115,9 @@ def resolve_max_length(model_dir: Path, override: int | None) -> int:
 
 
 def build_dummy_inputs(tokenizer, sample_text: str, max_length: int):
+    # ONNX 导出本质上是“沿着一次真实前向计算轨迹追踪计算图”。因此这里必须构造一组
+    # 与真实推理一致的样例输入，至少包括 input_ids / attention_mask，若底层模型需要，
+    # 也可能包含 token_type_ids。padding 到固定长度是为了让导出过程覆盖完整序列维度。
     encoded = tokenizer(
         sample_text,
         truncation=True,
@@ -124,6 +131,8 @@ def build_dummy_inputs(tokenizer, sample_text: str, max_length: int):
         if name in encoded
     ]
     example_inputs = tuple(encoded[name] for name in input_names)
+    # dynamic_axes 告诉 ONNX：batch 维和序列长度维不是常量。这样导出的模型就不会被
+    # 锁死在某一个固定 batch 或固定 seq_len 上，离线推理时可以处理不同长度的输入。
     dynamic_axes = {name: {0: "batch_size", 1: "seq_len"} for name in input_names}
     dynamic_axes["logits"] = {0: "batch_size"}
     return encoded, input_names, example_inputs, dynamic_axes
@@ -150,14 +159,20 @@ def main() -> None:
     label_mapping = load_json(model_dir / "label_mapping.json")
     train_config = load_json(model_dir / "train_config.json") if (model_dir / "train_config.json").exists() else {}
 
+    # 导出阶段必须同时加载 tokenizer 和 fine-tuned 后的分类模型权重。
+    # tokenizer 决定文本如何切分成 token id，模型权重则决定这些 token 最终如何映射成
+    # 分类 logits。两者必须来自同一训练产物目录，才能保证 bundle 内部自洽。
     tokenizer = AutoTokenizer.from_pretrained(model_dir, local_files_only=True)
     model = AutoModelForSequenceClassification.from_pretrained(
         model_dir,
         local_files_only=True,
     ).cpu().eval()
+    # export_model 只暴露 logits，避免把训练阶段才需要的 loss 等输出也带进部署图中。
     export_model = SequenceClassifierExportWrapper(model)
 
     bundle_dir.mkdir(parents=True, exist_ok=True)
+    # bundle 不仅保存 ONNX 文件，还要保存 tokenizer 配置和标签映射，这样目标环境在
+    # 没有外网、没有训练代码的情况下，仍然可以完整重建“文本 -> 张量 -> 标签”的闭环。
     tokenizer.save_pretrained(bundle_dir)
     save_json(bundle_dir / "label_mapping.json", label_mapping)
     if train_config:
@@ -173,6 +188,9 @@ def main() -> None:
     onnx_path = bundle_dir / args.onnx_file
     quantized_path = bundle_dir / args.quantized_onnx_file
 
+    # torch.onnx.export 会运行一次前向，并把其中涉及的算子导出成 ONNX 计算图。
+    # output_names 固定为 logits，便于推理脚本按稳定名字取结果；opset_version 需要与
+    # 当前 transformers / onnxruntime 支持的算子集合兼容。
     torch.onnx.export(
         export_model,
         example_inputs,
@@ -183,11 +201,15 @@ def main() -> None:
         opset_version=17,
     )
 
+    # 导出后立即做 ONNX 结构检查，可以尽早发现不兼容算子、图结构损坏或 shape 元数据异常。
     onnx_model = onnx.load(onnx_path.as_posix())
     onnx.checker.check_model(onnx_model)
 
     quantized_file: str | None = None
     if not args.no_quantize:
+        # 动态量化主要压缩线性层权重，把部分 FP32 权重转成 INT8。对 CPU 推理场景，
+        # 这通常能显著降低模型体积，并在很多环境下获得更好的吞吐或更低延迟。
+        # 这里保留原始 ONNX，再额外生成量化版，便于后续对效果和性能做对比回退。
         quantize_dynamic(
             model_input=onnx_path.as_posix(),
             model_output=quantized_path.as_posix(),
@@ -195,6 +217,8 @@ def main() -> None:
         )
         quantized_file = quantized_path.name
 
+    # manifest 是部署 bundle 的“说明书”。推理脚本依赖它找到模型文件、最大长度、输入名，
+    # 并明确训练阶段采用了什么文本归一化和标签映射，从而避免部署端猜测这些约定。
     manifest = {
         "task": "intent-classification",
         "source_model": train_config.get("model_name_or_path", "hfl/minirbt-h256"),
@@ -217,6 +241,8 @@ def main() -> None:
 
     archive_path = bundle_dir.with_suffix(".tar.gz")
     if not args.no_archive:
+        # 对内网交付场景，把整个 bundle 打成 tar.gz 更方便搬运；因为 tokenizer 文件、
+        # manifest、标签映射和模型文件必须一起传输，缺一项都会导致离线推理不可复现。
         with tarfile.open(archive_path, "w:gz") as archive:
             archive.add(bundle_dir, arcname=bundle_dir.name)
 

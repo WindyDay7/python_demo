@@ -1,0 +1,1255 @@
+% !TeX program = xelatex
+\documentclass[aspectratio=169,9pt]{beamer}
+
+% ==================== 核心宏包与中文支持 ====================
+\usepackage{ctex}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usepackage{tcolorbox}
+\usepackage{xparse}
+\usepackage{multirow}
+\usepackage{fontspec}
+\tcbuselibrary{skins,breakable}
+
+% ==================== 主题风格与银联暖色定制 ====================
+\usetheme{Madrid}
+
+\definecolor{up_primary}{RGB}{142, 40, 22}    % 银联深红/标题暖褐
+\definecolor{up_accent}{RGB}{224, 86, 36}     % 流体波浪珊瑚橙
+\definecolor{up_dark}{RGB}{30, 41, 59}        % 正文科技深灰
+\definecolor{up_gold}{RGB}{180, 83, 9}        % 强调金
+\definecolor{codebg}{RGB}{252, 252, 253}      % 极浅代码底色
+\definecolor{bordercolor}{RGB}{235, 238, 242} % 边框微灰
+
+\setbeamercolor{background canvas}{bg=}
+\setbeamercolor{palette primary}{bg=up_primary,fg=white}
+\setbeamercolor{palette secondary}{bg=up_accent,fg=white}
+\setbeamercolor{structure}{fg=up_primary}
+\setbeamercolor{normal text}{fg=up_dark}
+\setbeamercolor{block title}{bg=up_primary!10,fg=up_primary}
+\setbeamercolor{block body}{bg=white}
+\setbeamercolor{block title alerted}{bg=up_accent!15,fg=up_accent}
+\setbeamercolor{block body alerted}{bg=up_accent!5}
+
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}{
+    \hfill
+    \color{gray!70}\fontsize{6.5pt}{8pt}\selectfont
+    \insertframenumber\,/\,\inserttotalframenumber
+    \hspace*{0.6cm}\vspace*{0.25cm}
+}
+
+% ==================== 版式调参区 ====================
+\newlength{\FrameSideMargin}
+\setlength{\FrameSideMargin}{0.8cm}
+
+\newlength{\FrameTitleTopOffset}
+\setlength{\FrameTitleTopOffset}{1.05cm}
+
+\newlength{\FrameTitleBottomGap}
+\setlength{\FrameTitleBottomGap}{-0.05cm}
+
+\setbeamersize{text margin left=\FrameSideMargin, text margin right=\FrameSideMargin}
+
+\setbeamertemplate{frametitle}{
+    \vspace*{\FrameTitleTopOffset}
+    \noindent
+    \begin{minipage}{\textwidth}
+        {\usebeamerfont{frametitle}\bfseries\color{up_primary}\insertframetitle}
+        \ifx\insertframesubtitle\@empty\else
+            \par\vspace*{1.5pt}
+            {\usebeamerfont{framesubtitle}\fontsize{7pt}{8.5pt}\selectfont\color{gray!80}\insertframesubtitle}
+        \fi
+    \end{minipage}
+    \vspace*{\FrameTitleBottomGap}
+}
+
+% 隐藏页内总结块
+\let\origalertblock\alertblock
+\let\endorigalertblock\endalertblock
+\ExplSyntaxOn
+\RenewDocumentEnvironment{alertblock}{m +b}
+ {
+  \str_if_eq:nnF {#1} {核心结论}
+   {
+    \str_if_eq:nnF {#1} {课程收束}
+     { \origalertblock{#1} #2 \endorigalertblock }
+   }
+ }
+ {}
+\ExplSyntaxOff
+
+% ==================== 全局注入背景图模板（稳定修复版） ====================
+\usebackgroundtemplate{%
+    \begin{tikzpicture}[x=1cm, y=1cm]
+        % 声明严格匹配幻灯片尺寸的局部边界盒, 彻底摒弃 remember picture, overlay
+        \useasboundingbox (0, 0) rectangle (\paperwidth, \paperheight);
+
+        % 定义页面数学中心: (0.5\paperwidth, 0.5\paperheight)
+        \coordinate (slidecenter) at (0.5\paperwidth, 0.5\paperheight);
+
+        % 居中贴入背景底图
+        \node[inner sep=0pt, outer sep=0pt, anchor=center] at (slidecenter) {%
+            \includegraphics[width=\paperwidth, height=\paperheight]{bg.png}%
+        };
+
+        % 原有的白色遮罩区域（基于稳定的 slidecenter 偏移）
+        \fill[white] ([yshift=-0.15cm]slidecenter) rectangle ++(10cm, -2.2cm);
+        \fill[white] ([yshift=-0.15cm]slidecenter) rectangle ++(-10cm, 2.2cm);
+    \end{tikzpicture}%
+}
+
+% ==================== 代码块 listings 全局配置 ====================
+\lstset{
+    language=Python,
+    basicstyle=\ttfamily\fontsize{6pt}{7.2pt}\selectfont,
+    backgroundcolor=\color{codebg},
+    keywordstyle=\color{up_primary}\bfseries,
+    stringstyle=\color{teal},
+    commentstyle=\color{gray}\itshape,
+    breaklines=true,
+    frame=single,
+    rulecolor=\color{bordercolor},
+    numbers=none,
+    showstringspaces=false,
+    xleftmargin=0.5mm,
+    xrightmargin=0.5mm,
+    aboveskip=0.5mm,
+    belowskip=0.5mm
+}
+
+% 紧凑型图解文本样式
+\newcommand{\diagrambox}[1]{%
+    \begin{tcolorbox}[
+        colback=codebg,colframe=bordercolor,boxrule=0.5pt,
+        arc=1mm,left=1.2mm,right=1.2mm,top=1.2mm,bottom=1.2mm
+    ]
+    \ttfamily\fontsize{5.8pt}{7.2pt}\selectfont #1
+    \end{tcolorbox}
+}
+
+% ==================== 幻灯片标题页 ====================
+\title[数据分析与小模型]{Python 数据科学与小模型生产级全链路}
+\subtitle{底层数组原理 $\to$ 业务矩阵分析 $\to$ 文本微调 $\to$ 边缘轻量推理}
+\author{人工智能研发团队  吴枫}
+\date{Python 大课堂 2026}
+
+\begin{document}
+
+% 标题页
+\begin{frame}
+    \titlepage
+\end{frame}
+
+% 课程说明
+\begin{frame}{课程说明: 这门课怎么听、学什么、做到什么}{开场说明}
+\begin{columns}[T]
+    \column{0.52\textwidth}
+    \textbf{【课程定位】}
+    \begin{itemize}
+        \item 希望大家不只是记住了几个 API, 而是一次从工程视角理解数据计算与小模型落地的课程.
+        \item 遵循“为什么需要 $\to$ 底层怎么做 $\to$ 业务里怎么用 $\to$ 最后怎样部署”.
+        \item 帮大家建立一条完整主线: 数组、表格、模型、部署彼此如何衔接.
+    \end{itemize}
+
+    \textbf{【建议学习方式】}
+    \begin{itemize}
+        \item 每一页先抓住一句结论, 再回头看图解和代码.
+        \item 先理解数据流向与计算关系, 再去记 API 名称.
+    \end{itemize}
+
+    \column{0.48\textwidth}
+    \textbf{【学完之后要能回答】}
+    \begin{enumerate}
+        \item 为什么 NumPy 会比原生循环快很多？
+        \item 为什么 Pandas 适合真实业务表格分析？
+        \item 文本分类从清洗到微调到底经过了哪些步骤？
+        \item 为什么部署时要导出 ONNX 并进一步量化？
+    \end{enumerate}
+
+    \begin{alertblock}{课堂要求}
+        \scriptsize 今天更强调“建立框架”和“看懂链路”, 公式和 API 可以课后自查.
+    \end{alertblock}
+\end{columns}
+\end{frame}
+
+
+% 课程目录
+\begin{frame}{课程目录}{先看全貌, 再进细节}
+\begin{columns}[T]
+    \column{0.58\textwidth}
+    \tableofcontents[hideallsubsections]
+
+    \column{0.42\textwidth}
+    \begin{block}{本次课程的三条主线}
+    \begin{itemize}
+        \item 计算主线: 连续内存、广播、向量化
+        \item 分析主线: 清洗、聚合、关联、滑窗
+        \item 工程主线: 微调、导出、量化、推理
+    \end{itemize}
+    \end{block}
+
+    \begin{alertblock}{提示}
+        \scriptsize 如果中途觉得细节很多, 就回到目录页想一件事: 当前内容到底是在服务哪一条主线. 或者可以参考 Jupyter Notebook 里的课程笔记.
+    \end{alertblock}
+\end{columns}
+\end{frame}
+
+% ==================== 模块一: 思维跃迁 ====================
+\section{思维跃迁: 工程开发到矩阵思维}
+
+% 第 1 页
+\begin{frame}[fragile]{课程全景: 我们到底要解决什么问题？}{模块一: 主线（第 1 页）}
+\begin{columns}[T]
+    \column{0.54\textwidth}
+    \textbf{【先统一问题意识】}
+    \begin{itemize}
+        \item 对后端工程师来说, 最需要转换的不是语法, 而是思维: 从“逐对象处理”转向“整批数据变换”.
+        \item Python 在这里不是靠解释器速度取胜, 而是作为胶水, 把底层高性能库、表格分析和模型训练串成一条链.
+        \item 本课会反复回到一个判断标准: 这段代码是在移动对象, 还是在批量推动一块连续数据？
+        \item 只要把这条主线抓住, NumPy、Pandas、PyTorch 和 ONNX 就不会变成四堆分散的 API.
+    \end{itemize}
+
+    \column{0.44\textwidth}
+    \textbf{【课程主线图】}
+    \vspace{1.5mm}
+    
+    {\scriptsize % 若觉得还不够大，可直接换成 \footnotesize
+    \renewcommand{\arraystretch}{1.2} % 增加表格行高，避免行间距拥挤
+    \begin{tabular}{@{}p{1.3cm}p{3.9cm}@{}}
+        \toprule
+        \textbf{阶段} & \textbf{课堂里要解决的问题} \\
+        \midrule
+        NumPy   & Python处理数据为什么能批量算、算得快 \\
+        Pandas  & 业务表格怎样安全对齐、聚合、关联 \\
+        MiniRBT & 文本怎样从句子变成可训练张量 \\
+        ONNX    & 训练好的模型怎样变成可交付推理服务 \\
+        \bottomrule
+    \end{tabular}
+    }
+    \vspace{2mm}
+\begin{lstlisting}
+# 从“逐个处理”转换为“整块表达”
+result = data * 1.05 + 3.0
+\end{lstlisting}
+    \begin{alertblock}{核心结论}
+        \scriptsize 这门课不是在教四个库, 而是在训练一种判断力: 看到数据问题时, 先想“能不能改写成整批计算”.
+    \end{alertblock}
+\end{columns}
+\end{frame}
+
+% 第 2 页
+\begin{frame}[fragile]{为什么原生 Python 在大数据上会吃力？}{模块一: 传统痛点（第 2 页）}
+\begin{columns}[T]
+    \column{0.54\textwidth}
+    \textbf{【为什么原生写法会慢】}
+    \begin{itemize}
+        \item 原生 \texttt{list} 更像“对象的地址簿”, 里面装的是一个个离散的 \texttt{PyObject}, 不是一整块连续数值内存.
+        \item 当数据量到百万级时, CPU 读取这些离散对象会频繁失去缓存命中, 性能瓶颈先出现在内存访问, 而不是语法本身.
+        \item 同时, 原生 \texttt{for} 循环每一轮都要承受解释器调度、类型判断和引用计数维护, 这些开销会被重复放大.
+        \item 所以我们不是因为“NumPy 更高级”才用它, 而是因为它更适合把同类数据放进连续缓冲区里做批量计算.
+    \end{itemize}
+
+    \column{0.44\textwidth}
+    \textbf{【内存物理结构图解】}
+    \diagrambox{
+    \textbf{Python List} (指针跳跃, 极易 Cache Miss)\\
+    list $\to$ [ ptr0 | ptr1 | ptr2 ]\\
+    \phantom{list $\to$} \ $\downarrow$ \ \ \ \ \ $\downarrow$ \ \ \ \ \ $\downarrow$\\
+    \phantom{list $\to$} [PyObj] [PyObj] [PyObj] (堆中到处寻址)\\[1.5mm]
+    \textbf{NumPy ndarray} (纯连续数值内存, 缓存极度友好)\\
+    buf  $\to$ [ 10.0 | 20.0 | 30.0 | 40.0 ] (硬件直连)
+    }
+    \vspace{1mm}
+\begin{lstlisting}
+import numpy as np
+arr = np.arange(1_000_000, dtype=np.int64)
+total = arr.sum()
+\end{lstlisting}
+    \begin{alertblock}{核心结论}
+        \scriptsize 原生 Python 当然能做计算, 但它不是为海量同构数据设计的. NumPy 的价值, 是把“批量算”这件事变成默认路径.
+    \end{alertblock}
+\end{columns}
+\end{frame}
+
+% 第 3 页
+\begin{frame}[fragile]{课程案例说明: 为什么我们用出租车数据和意图识别任务？}{模块一: 真实案例与后续任务（第 3 页）}
+\begin{columns}[T]
+    \column{0.56\textwidth}
+    \textbf{【两条案例线怎么配合】}
+    \begin{itemize}
+        \item 结构化数据部分, 我们用 NYC Taxi 数据讲清洗、聚合、连接和滑窗异常, 所有 NumPy / Pandas 技术都回到这张表上落地.
+        \item 非结构化数据部分, 我们用金融客服意图识别讲文本清洗、张量化、微调与部署, 让大家看到小模型完整交付链路.
+        \item 这两条案例线共用同一个课堂目标: 把“数据 $\to$ 计算 $\to$ 结果 $\to$ 交付”串成完整流程, 而不是把知识点拆成孤立章节.
+        \item 所以这一页不是单纯介绍数据集, 而是在交代后面每个工具到底要解决什么业务问题.
+    \end{itemize}
+
+    \column{0.44\textwidth}
+    \textbf{【为什么要强调 Parquet】}
+    \vspace{1.5mm}
+
+    {\scriptsize
+    \setlength{\tabcolsep}{3pt}       % 稍微收紧列间距，给文字腾出空间
+    \renewcommand{\arraystretch}{1.2} % 增加行高，提升阅读呼吸感
+    \begin{tabular}{@{}p{1.1cm}p{2.1cm}p{2.7cm}@{}}
+        \toprule
+        \textbf{维度} & \textbf{CSV (行式文本)} & \textbf{Parquet (列式二进制)} \\
+        \midrule
+        存储结构  & 按行扫描，纯字符   & 按列切块，仅加载分析列 \\
+        体积与I/O & 文本膨胀，I/O瓶颈  & 压缩率达70\%$\sim$85\%，跳读 \\
+        类型安全  & 弱类型，重复推断   & 内嵌强类型 Schema，零歧义 \\
+        \bottomrule
+    \end{tabular}
+    }
+    \vspace{2mm}
+\begin{lstlisting}
+import pandas as pd
+taxi = pd.read_parquet(
+    "../data/yellow_tripdata_2025-12.parquet"
+)
+print(taxi.shape)
+\end{lstlisting}
+    \begin{alertblock}{核心结论}
+        \scriptsize 案例不是陪衬, 而是课堂主线.后面所有 API 都要回到这两份真实数据上, 解决可以落地的问题.
+    \end{alertblock}
+\end{columns}
+\end{frame}
+
+% ==================== 模块二: NumPy 底层解密 ====================
+\section{NumPy 底层解密: 不仅是更快的列表}
+
+% 第 4 页
+\begin{frame}[fragile]{ndarray 的底层解剖: Data Buffer 与元信息三元组}{模块二: NumPy 底层（第 4 页）}
+\begin{columns}[T]
+    \column{0.54\textwidth}
+    \textbf{【先把 ndarray 拆开看】}
+    \begin{itemize}
+        \item \textbf{源码架构}: 在 C 源码结构体 \texttt{PyArrayObject} 中, 主要由两部分紧密绑定: 数据缓冲区（Data Buffer）与元数据说明书（Metadata）.
+        \item \textbf{元数据三元组}: 
+            \begin{itemize}
+                \item \texttt{dtype}: 决定单一数值占用字节数（如 \texttt{int32} 占 4 字节）.
+                \item \texttt{shape}: 赋予一维线性缓冲区多维几何视角.
+                \item \texttt{strides}: 步长, 即沿各维度移动一步需跳跃的物理内存字节数.
+            \end{itemize}
+        \item \textbf{物理寻址映射公式}: 
+            $$\text{Offset} = i \times \text{strides}[0] + j \times \text{strides}[1]$$
+    \end{itemize}
+
+    \column{0.44\textwidth}
+    \textbf{【C-Order 物理内存排布】}
+    \diagrambox{
+    矩阵 shape=(3,4), dtype=int32 (4字节)\\
+    步长 strides=(16, 4)\\
+    -----------------------------------------\\
+    线性内存缓冲区 (一维存放):\\
+    {}[ 0, 1, 2, 3 | 4, 5, 6, 7 | 8, 9, 10, 11 ]\\
+    |-- 第0行 --| |-- 第1行 --| |-- 第2行 ---|\\[1mm]
+    + 列移动 1 步: +4 字节  (strides[1])\\
+    + 行移动 1 步: +16 字节 (4元素 $\times$ 4B = strides[0])
+    }
+    \vspace{1mm}
+\begin{lstlisting}
+import numpy as np
+arr = np.array([[1, 2, 3, 4], [5, 6, 7, 8]], dtype=np.int32)
+print("形状:", arr.shape, "步长:", arr.strides)
+\end{lstlisting}
+    \begin{alertblock}{核心结论}
+        \scriptsize NumPy 的核心思想是“逻辑视图与物理存储分离”.物理上永远只是一维字节流, 维度只是数学解释.
+    \end{alertblock}
+\end{columns}
+\end{frame}
+
+% 第 5 页
+\begin{frame}[fragile]{内存复用机制: 零拷贝视图（View）与物理深拷贝（Copy）}{模块二: NumPy 底层（第 5 页）}
+\begin{columns}[T]
+    \column{0.54\textwidth}
+    \textbf{【先分清 View 和 Copy】}
+    \begin{itemize}
+        \item \textbf{零拷贝 View}: 基本切片（\texttt{arr[0:2]}）与转置（\texttt{arr.T}）不搬运物理数据, 仅修改 \texttt{shape} 和 \texttt{strides}, 内部指针共享同一缓冲区, $O(1)$ 瞬间完成.
+        \item \textbf{副作用与并发隐患}: 对 View 的写入会原地修改原数组.需独立内存隔离时, 必须显式调用 \texttt{.copy()}.
+        \item \textbf{高级索引必触发 Copy}: 布尔掩码（\texttt{arr[arr>0]}）或花式索引（\texttt{arr[[0,2]]}）由于内存离散非等差, 无法用统一步长表达, NumPy 必定开辟新内存深拷贝.
+        \item \textbf{连续性陷阱}: 转置后矩阵失去 C-Contiguity, 此时调用 \texttt{reshape} 可能会被迫在后台做隐式深拷贝.
+    \end{itemize}
+
+    \column{0.44\textwidth}
+    \textbf{【View 与 Copy 行为对照】}
+    \vspace{1.5mm}
+
+    {\scriptsize
+    \setlength{\tabcolsep}{3pt}       % 收紧列间距，为文字腾出空间
+    \renewcommand{\arraystretch}{1.2} % 增加行距，避免多行挤贴
+    \begin{tabular}{@{}p{1.5cm}p{1.1cm}p{3.0cm}@{}}
+        \toprule
+        \textbf{操作类型} & \textbf{共享内存} & \textbf{底层机制与性能影响} \\
+        \midrule
+        切片 / 转置   & 是 (View) & 仅改元数据，$O(1)$ 极速完成 \\
+        花式索引      & 否 (Copy) & 内存非等差，被迫分配新内存深拷贝 \\
+        布尔掩码筛选  & 否 (Copy) & 离散地址抽取，触发物理复制 \\
+        \bottomrule
+    \end{tabular}
+    }
+    \vspace{2mm}
+\begin{lstlisting}
+sub_view = arr[0:2, :]  # 零拷贝 View
+sub_view[0, 0] = 999     # 警告: 原数组 arr 同步被修改!
+
+safe_copy = arr.copy()   # 独立内存深拷贝, 物理隔离
+\end{lstlisting}
+    \begin{alertblock}{核心结论}
+        \scriptsize NumPy 绝不轻易多占你一字节内存.切片是看同一幅画的不同角度（View）, 非要撕下来带走时才复印（Copy）.
+    \end{alertblock}
+\end{columns}
+\end{frame}
+
+% 第 6 页
+\begin{frame}[fragile]{多维张量的导航指南: 轴（Axis）的物理与逻辑本质}{模块二: NumPy 底层（第 6 页）}
+\begin{columns}[T]
+    \column{0.54\textwidth}
+    \textbf{【别背 axis, 先看谁消失】}
+    \begin{itemize}
+        \item \textbf{黄金降维法则}: 指定哪个 \texttt{axis}, 计算就是“沿着该维度向内坍缩/穿透”, 最终输出的数组中该轴将直接被压缩消除.
+        \item \textbf{二维行为解析}: 
+            \begin{itemize}
+                \item \texttt{axis=0}: 沿第 0 轴（纵向向下）穿透各行, 消除行维度, 输出每列的统计标量, 形状 $(M, N) \to (N,)$.
+                \item \texttt{axis=1}: 沿第 1 轴（横向向右）穿透各列, 消除列维度, 输出每行的统计标量, 形状 $(M, N) \to (M,)$.
+            \end{itemize}
+        \item \textbf{高维张量池化}: 在深度学习 4D 张量中（如 $(B, C, H, W)$）, \texttt{axis=(2, 3)} 即横纵空间轴联合坍缩, 实现全局自适应均值池化.
+    \end{itemize}
+
+    \column{0.44\textwidth}
+    \textbf{【二维轴压缩示意图】}
+    \diagrambox{
+    原始矩阵 (3行4列):\\
+    {}[ 1,  2,  3,  4 ] $\to$ 行0和: 10\\
+    {}[ 5,  6,  7,  8 ] $\to$ 行1和: 26 $\Rightarrow$ \textbf{axis=1 (压缩列)}\\
+    {}[ 9, 10, 11, 12 ] $\to$ 行2和: 42 \ \ \ \ shape: (3,)\\
+    \  $\downarrow$   $\downarrow$   $\downarrow$   $\downarrow$\\
+    {}[15, 18, 21, 24] $\Rightarrow$ \textbf{axis=0 (压缩行)}, shape: (4,)\\[1mm]
+    口诀: 指定哪轴, 哪轴在输出结果中抹平消失
+    }
+    \vspace{1mm}
+\begin{lstlisting}
+matrix = np.arange(12).reshape(3, 4)
+col_sum = matrix.sum(axis=0)  # 纵向压缩, 输出各列和 (4,)
+row_sum = matrix.sum(axis=1)  # 横向压缩, 输出各行和 (3,)
+\end{lstlisting}
+    \begin{alertblock}{核心结论}
+        \scriptsize 核心口诀: “指定哪轴, 哪轴消失”.无论是求和还是求极值索引, 被指定的轴在结果中必然被抹平.
+    \end{alertblock}
+\end{columns}
+\end{frame}
+
+% 第 7 页
+\begin{frame}[fragile]{广播机制（Broadcasting）: 虚拟维度对齐与步长为 0 的秘密}{模块二: NumPy 底层（第 7 页）}
+\begin{columns}[T]
+    \column{0.54\textwidth}
+    \textbf{【先记广播的两条规则】}
+    \begin{itemize}
+        \item \textbf{为什么需要广播}: 使不同形状的张量在无需物理复制的前提下, 自动几何对齐并执行逐元素计算.
+        \item \textbf{严格对齐双法则}: 
+            从两个张量形状的最右侧（末维）向前逐个比对: 
+            \begin{enumerate}
+                \item 维度大小严格相等；
+                \item 或其中一个张量该维度大小严格为 1（若缺少维度, 左侧自动补 1 对齐）.
+            \end{enumerate}
+            均满足则广播成功, 否则抛出 \texttt{ValueError}.
+        \item \textbf{底层秘密: 步长为 0（Stride = 0）}: 
+            将 $(1, N)$ 广播为 $(M, N)$ 时, NumPy 绝不复制物理数据, 而是直接将第 0 轴步长设为 0.指针下移时物理偏移为 0, 实现真正的零内存开销虚拟扩展.
+    \end{itemize}
+
+    \column{0.44\textwidth}
+    \textbf{【广播维度匹配演示】}
+    \diagrambox{
+    张量 A 形状 : ( 4 ,  1 ,  5 )\\
+    张量 B 形状 : ( 1 ,  3 ,  5 ) $\leftarrow$ 左侧自动补 1\\
+    --------------------------------------\\
+    末维向前比对:  4=4  1$\to$3  5=5 (沿为1轴虚拟展开)\\
+    广播输出形状: ( 4 ,  3 ,  5 )\\[1mm]
+    底层机制: 将为 1 维度的步长置为 0, 零拷贝！
+    }
+    \vspace{2mm}
+\begin{lstlisting}
+# 利用 newaxis 零循环广播计算点对欧氏距离
+pts = np.array([[0, 0], [3, 0], [0, 4]]) # (3, 2)
+diff = pts[:, None, :] - pts[None, :, :] # (3, 3, 2)
+dist = np.sqrt(np.sum(diff ** 2, axis=-1))
+\end{lstlisting}
+    \begin{alertblock}{核心结论}
+        \scriptsize 广播不是把数据在内存里复制一万遍, 而是极其优美地把指针寻址步长直接置为 0.
+    \end{alertblock}
+\end{columns}
+\end{frame}
+
+% 第 8 页
+\begin{frame}[fragile]{向量化（Vectorization）思维的升维}{模块二: NumPy 底层（第 8 页）}
+\begin{columns}[T]
+    \column{0.54\textwidth}
+    \textbf{【把循环改写成表达式】}
+    \begin{itemize}
+        \item \textbf{向量化的本质}: 并非发明新数学, 而是将高层语言命令式循环, 转换为数组整体的声明式表达式.
+        \item \textbf{SIMD 硬件加速}: 现代 CPU 具备单指令多数据流单元（如 AVX-512、ARM Neon）.底层 C 循环会被展开并映射至向量寄存器, 一条指令并行计算 4/8/16 个浮点加法.
+        \item \textbf{分支逻辑向量化平铺}: 传统 \texttt{if-else} 导致 CPU 分支预测失败与流水线回滚；布尔掩码（Boolean Masking）将逻辑平铺为一张全量布尔表, 成批提取, 彻底消灭分支惩罚.
+    \end{itemize}
+
+    \column{0.44\textwidth}
+    \textbf{【执行范式迁移】}
+    \diagrambox{
+    \textbf{1. 命令式循环 (低效解释执行)}\\
+    \ for x in data: 每轮循环重复以下开销:\\
+    \ $\to$ 解释器调度 $\to$ 类型校验 $\to$ 产生堆对象\\[1.5mm]
+    \textbf{2. 向量化计算 (SIMD 硬件吞吐)}\\
+    \ arr * 1.05 + 3: 整体移交底层 C 内核:\\
+    \ $\to$ 连续内存载入 CPU 向量寄存器\\
+    \ $\to$ 单指令多数据 (SIMD) 瞬间并发吞吐
+    }
+    \vspace{1mm}
+\begin{lstlisting}
+prices = np.array([100.0, 120.0, -5.0, 80.0]) # 含脏数据
+valid_mask = prices > 0                        # 布尔掩码
+clean_adj = prices[valid_mask] * 1.05 + 3     # 批量运算
+\end{lstlisting}
+    \begin{alertblock}{核心结论}
+        \scriptsize 在数据科学的世界里, 代码中每多写一个 Python 原生 for 循环, 底层的向量计算单元就在哭泣一次.
+    \end{alertblock}
+\end{columns}
+\end{frame}
+
+% ==================== 模块三: Pandas 核心基石 ====================
+\section{Pandas 核心基石: 业务语义与关系代数}
+
+% 第 9 页
+\begin{frame}[fragile]{Pandas 的三大基石: Series、DataFrame 与 Index}{模块三: Pandas 基石（第 9 页）}
+\begin{columns}[T]
+    \column{0.54\textwidth}
+    \textbf{【为什么业务表格不能只靠 ndarray】}
+    \begin{itemize}
+        \item \textbf{为何 ndarray 不足以应付业务}: 纯数值矩阵无法承载字段名、业务主键、异构类型混排、缺失值以及表间关联.
+        \item \textbf{三位一体架构}: 
+            \begin{itemize}
+                \item \textbf{Series}: 原子单列, 带标签轴与字段名的同构向量.
+                \item \textbf{DataFrame}: 共享行索引的 Series 容器, 列式内存管理.
+                \item \textbf{Index}: 不可变的轴标签对象, 业务寻址核心.
+            \end{itemize}
+        \item \textbf{自动标签对齐（Label Alignment）}: 
+            Series 相加不按物理顺序, 而是依据 Index 业务主键匹配并集.孤立索引安全回退为 \texttt{NaN}, 绝不错位串行算错.
+    \end{itemize}
+
+    \column{0.44\textwidth}
+    \textbf{【标签自动对齐图解】}
+    \diagrambox{
+    \renewcommand{\arraystretch}{1.15}
+    \begin{tabular}{@{}l@{\ }c@{\ }l@{\ }c@{\ }l@{}}
+    \textbf{Series A} & & \textbf{Series B} & & \textbf{A + B 对齐结果} \\
+    \cline{1-1}\cline{3-3}\cline{5-5}
+    A : 10.0 & & (缺失)   & $\to$ & A : NaN \\
+    B : 20.0 & + & B : 1.0  & $\to$ & B : 21.0 (20+1) \\
+    C : 30.0 & & C : 2.0  & $\to$ & C : 32.0 (30+2) \\
+    (缺失)   & & D : 3.0  & $\to$ & D : NaN \\
+    \end{tabular}\\[1mm]
+    $\ast$ 依据 Index 主键自动外连接对齐, 绝不按位置错位
+    }
+    \vspace{1mm}
+\begin{lstlisting}
+import pandas as pd
+s1 = pd.Series([10.0, 20.0], index=["Order_A", "Order_B"])
+s2 = pd.Series([5.0, 1.0], index=["Order_B", "Order_C"])
+total = s1.add(s2, fill_value=0.0) # 自动对齐主键, 安全填零
+\end{lstlisting}
+    \begin{alertblock}{核心结论}
+        \scriptsize NumPy 让计算机算得快, Pandas 让人看得懂.Index 是数据的身份证, 只要身份证对齐, 数据就不会算乱.
+    \end{alertblock}
+\end{columns}
+\end{frame}
+
+% 第 10 页
+\begin{frame}[fragile]{Index 的进阶本质与时空切片能力}{模块三: Pandas 基石（第 10 页）}
+\begin{columns}[T]
+    \column{0.54\textwidth}
+    \textbf{【Index 不只是行号】}
+    \begin{itemize}
+        \item \textbf{不可变性与哈希映射}: \texttt{Index} 底层不可变, 保障链式计算安全.内部自动构建哈希加速表, 标签检索达 $O(1)$ 级别.
+        \item \textbf{三大核心索引形态}: 
+            \begin{itemize}
+                \item \texttt{RangeIndex}: 极轻量虚构索引, 不占物理内存.
+                \item \texttt{Index}: 业务主键标签（订单号、用户 ID）.
+                \item \texttt{DatetimeIndex}: 纳秒级时间戳索引, 时序底座.
+            \end{itemize}
+        \item \textbf{时间序列天然切片}: 赋予时间索引后, 直接支持如 \texttt{"2025-12-01":"2025-12-07"} 的自然语义切片、\texttt{resample} 重采样与 \texttt{rolling} 滚动计算.
+    \end{itemize}
+
+    \column{0.44\textwidth}
+    \textbf{【Index 索引演进树】}
+    \diagrambox{
+    \textbf{Base Index} (通用基类抽象)\\
+    |-- RangeIndex (0, 1, 2... 内存零开销)\\
+    |-- CategoricalIndex (枚举字典, 分析加速)\\
+    |-- MultiIndex (分层多级索引, 高维透视)\\
+    \-- DatetimeIndex (纳秒级时间序列底座)\\
+    \ \ \ \ \-- 支撑: 语义化切片 / resample / rolling
+    }
+    \vspace{2mm}
+\begin{lstlisting}
+df_time = pd.DataFrame({"orders": [120, 150]},
+    index=pd.to_datetime(["2025-12-01 08:00", "2025-12-01 09:00"]))
+rush = df_time.loc["2025-12-01 08:00":"2025-12-01 08:30"]
+\end{lstlisting}
+    \begin{alertblock}{核心结论}
+        \scriptsize 永远不要只把 Index 当成自增 ID, 它是你探索时间维度、连接异构实体最坚实的物理桥梁.
+    \end{alertblock}
+\end{columns}
+\end{frame}
+
+% ==================== 模块四: 业务实战五问 ====================
+\section{业务实战五问: 以 200 万纽约出租车订单为例}
+
+% 第 11 页
+\begin{frame}[fragile]{实战 Q1: 这 200 万条数据真的可靠吗？}{模块四: 业务实战（第 11 页）}
+\begin{columns}[T]
+    \column{0.54\textwidth}
+    \textbf{【先做准入校验】}
+    \begin{itemize}
+        \item \textbf{数据防御前提}: 真实数据充斥网络丢包、计价器断电、退款冲正.未经校验的聚合分析注定是空中楼阁.
+        \item \textbf{三维防御闭环体系}: 
+            \begin{itemize}
+                \item \textbf{类型诊断}: 核验时间字段是否为纯文本, 检查浮点精度.
+                \item \textbf{缺失诊断}: 统计空值率, 评估缺失分布.
+                \item \textbf{业务边界掩码}: 金额 $> 0$、距离 $> 0$、行程时间在 $(0, 1440)$ 分钟合法区间.
+            \end{itemize}
+        \item \textbf{细粒度归因（np.select）}: 不仅要用 \texttt{query} 筛出合规子集, 更需用 \texttt{np.select} 打标错误根因（\texttt{bad\_fare} 等）, 沉淀数据质量审计看板.
+    \end{itemize}
+
+    \column{0.44\textwidth}
+    \textbf{【数据校验漏斗】}
+    \diagrambox{
+    \textbf{全量原始数据 (200万+ 行)}\\
+    \ $\downarrow$ 准入体检三道防御闸门\\
+    (1) 类型/缺失: 剔除 NaT 与解析异常行\\
+    (2) 物理逻辑: 剔除距离$\le$0、时长$\le$0幽灵单\\
+    (3) 财务规则: 剔除金额$\le$0退款冲正单\\
+    \ $\downarrow$ 打标归因 (np.select)\\
+    \textbf{纯净分析底表} (可信率 $\sim$96\%) + 质量审计看板
+    }
+    \vspace{1mm}
+\begin{lstlisting}
+taxi = taxi.assign(trip_mins=(taxi["tpep_dropoff_datetime"] - taxi["tpep_pickup_datetime"]).dt.total_seconds() / 60)
+conds = [taxi["fare_amount"] <= 0, taxi["trip_distance"] <= 0, taxi["trip_mins"] <= 0]
+labels = ["bad_fare", "bad_dist", "bad_dur"]
+taxi["quality_flag"] = np.select(conds, labels, default="ok")
+clean_taxi = taxi.query("quality_flag == 'ok'").copy()
+\end{lstlisting}
+    \begin{alertblock}{核心结论}
+        \scriptsize Trash in, Trash out. 数据工程师最宝贵的素养, 永远是在敲下第一行聚合前, 用怀疑的眼光体检边界.
+    \end{alertblock}
+\end{columns}
+\end{frame}
+
+% 第 12 页
+\begin{frame}[fragile]{实战 Q2: 一天中什么时候最忙？}{模块四: 业务实战（第 12 页）}
+\begin{columns}[T]
+    \column{0.54\textwidth}
+    \textbf{【先把时间戳变成业务维度】}
+    \begin{itemize}
+        \item \textbf{时域特征提取}: 原始秒级时间戳无法直接聚合.通过 \texttt{.dt} 命名空间提取小时（\texttt{pickup\_hour}）与星期（\texttt{pickup\_weekday}）.
+        \item \textbf{Split-Apply-Combine 机制}: 
+            \begin{itemize}
+                \item \textbf{Split}: 底层基于分组键构建哈希字典, 划分数据切片.
+                \item \textbf{Apply}: 各组内独立并行执行聚合函数.
+                \item \textbf{Combine}: 将标量组装拼接为规整报表.
+            \end{itemize}
+        \item \textbf{现代化命名聚合（Named Aggregation）}: 
+            使用 \texttt{agg(new\_col=('src', 'func'))} 语法, 一次扫描完成总单量、总流水、客单价统计并重命名.
+    \end{itemize}
+
+    \begin{alertblock}{核心结论}
+        \scriptsize 聚合不是为了把数据做小, 而是把两百万条混沌记录按业务维度切开, 再压缩成可以指导决策的趋势表.
+    \end{alertblock}
+
+    \column{0.44\textwidth}
+    \textbf{【Split-Apply-Combine 模式】}
+    \diagrambox{
+    清洗后数据底表 (200万行)\\
+    \ $\downarrow$\\
+    \textbf{Split}   : 按 pickup\_hour 切分为 24 个逻辑桶\\
+    \ $\downarrow$\\
+    \textbf{Apply}   : 各桶并行统计 size, sum, mean\\
+    \ $\downarrow$\\
+    \textbf{Combine} : 拼装为 24 行聚合大盘报表并排序
+    }
+    \vspace{2mm}
+\begin{lstlisting}
+hourly_summary = (
+    clean_taxi.assign(hour=clean_taxi["tpep_pickup_datetime"].dt.hour)
+    .groupby("hour", as_index=False)
+    .agg(
+        order_count=("total_amount", "size"),
+        total_rev=("total_amount", "sum"),
+        avg_price=("total_amount", "mean")
+    )
+    .sort_values("order_count", ascending=False)
+)
+\end{lstlisting}
+\end{columns}
+\end{frame}
+
+% 第 13 页
+\begin{frame}[fragile]{实战 Q3: 哪个时间段流水与单位运营时间收入最高？}{模块四: 业务实战（第 13 页）}
+\begin{columns}[T]
+    \column{0.54\textwidth}
+    \textbf{【从总量走向效率】}
+    \begin{itemize}
+        \item \textbf{告别单一绝对量}: 总流水高可能仅因路堵耗时长.精细化运营必须关注单位时间产出效率.
+        \item \textbf{派生指标构建}: 每分钟收入（\texttt{revenue\_per\_minute}）与每英里单价.
+        \item \textbf{Transform 组内基准对齐}: 
+            \begin{itemize}
+                \item \texttt{agg} 产生聚合压缩: 分组后行数锐减（如 24 行）.
+                \item \texttt{transform} 保持原表行数: 组内计算均值后, 广播贴回原表每一行.
+            \end{itemize}
+        \item \textbf{相对偏离度诊断}: 以 \texttt{rpm / hour\_avg} 衡量单笔订单在同时间路况基准下的相对变现效率.
+    \end{itemize}
+
+    \begin{alertblock}{核心结论}
+        \scriptsize 想看大盘用 \texttt{agg}, 想判断一条订单在所属时段里高不高效, 就用 \texttt{transform} 把组内基准贴回原表.
+    \end{alertblock}
+
+    \column{0.44\textwidth}
+    \textbf{【Agg 压缩 vs Transform 广播回填】}
+    \diagrambox{
+    原始明细: 8点单A(100元), 8点单B(20元)\\[1.5mm]
+    \textbf{1. agg('mean') [压缩成报表]}\\
+    \ $\to$ 输出 1 行汇总: [8点, 均值 60元]\\[1.5mm]
+    \textbf{2. transform('mean') [广播对齐保持原行]}\\
+    \ $\to$ 单A: [100元, 时段均值 60] $\to$ 偏离比 1.67\\
+    \ $\to$ 单B: [ 20元, 时段均值 60] $\to$ 偏离比 0.33
+    }
+    \vspace{2mm}
+\begin{lstlisting}
+q3_df = clean_taxi.assign(rpm=clean_taxi["total_amount"] / clean_taxi["trip_mins"])
+h_col = q3_df["tpep_pickup_datetime"].dt.hour
+q3_df["hour_avg_rpm"] = q3_df.groupby(h_col)["rpm"].transform("mean")
+q3_df["eff_ratio"] = q3_df["rpm"] / q3_df["hour_avg_rpm"]
+\end{lstlisting}
+\end{columns}
+\end{frame}
+
+% 第 14 页
+\begin{frame}[fragile]{实战 Q4: 哪些上下车区域最热门？}{模块四: 业务实战（第 14 页）}
+\begin{columns}[T]
+    \column{0.54\textwidth}
+    \textbf{【先统计, 再补地理信息】}
+    \begin{itemize}
+        \item \textbf{空间拓扑聚合}: 分别对起点（PULocationID）与终点（DOLocationID）进行客流频次统计.
+        \item \textbf{外连接（Outer Join）保持拓扑完整}: 偏远区域可能单向流动（仅有人上车或下车）, 内连接会导致非对称区域丢失, 需外连接配合 \texttt{fillna(0)}.
+        \item \textbf{validate 防御机制}: 
+            防止脏数据非唯一引发隐蔽且灾难性的“笛卡尔积行数爆炸”: 
+            \begin{itemize}
+                \item \texttt{validate="one\_to\_one"}: 强制两表关联键均唯一.
+                \item \texttt{validate="many\_to\_one"}: 断言维表主键绝无重复.
+            \end{itemize}
+    \end{itemize}
+
+    \begin{alertblock}{核心结论}
+        \scriptsize 热点分析最怕的不是没有结果, 而是静默连错表；\texttt{validate} 的作用, 就是提前拦住笛卡尔积这种灾难性错误.
+    \end{alertblock}
+
+    \column{0.44\textwidth}
+    \vspace*{-3.5mm} % 整体上提右侧图解与代码
+    \textbf{【多表校验关联流】}
+    \diagrambox{
+    {}[上车量 (LocationID)] + [下车量 (LocationID)]\\
+    \ $\downarrow$ \textbf{Outer Join} (validate="1:1") + fillna(0)\\
+    {}[区域总吞吐量] (上车量 + 下车量)\\
+    \ $\downarrow$ \textbf{Left Join} 字典维表 (validate="m:1")\\
+    \textbf{热门区域宽表} (补全行政区划/商圈名)\\[0.5mm]
+    $\ast$ 强制校验键唯一性, 彻底阻断笛卡尔积爆炸
+    }
+    \vspace{0.5mm}
+\begin{lstlisting}[basicstyle=\ttfamily\fontsize{5.2pt}{6.3pt}\selectfont]
+pu = clean_taxi["PULocationID"].value_counts().rename_axis("LocationID")
+do = clean_taxi["DOLocationID"].value_counts().rename_axis("LocationID")
+zone_dim = pd.read_csv("../data/taxi_zone_lookup.csv")
+hotspots = (
+    pu.reset_index(name="pu_cnt")
+    .merge(do.reset_index(name="do_cnt"), on="LocationID", how="outer", validate="one_to_one")
+    .fillna(0).assign(total=lambda x: x["pu_cnt"] + x["do_cnt"])
+    .merge(zone_dim, on="LocationID", how="left", validate="many_to_one")
+)
+\end{lstlisting}
+\end{columns}
+\end{frame}
+
+% 第 15 页
+\begin{frame}[fragile]{实战 Q5: 哪些订单和时间窗口可能异常？}{模块四: 业务实战（第 15 页）}
+\begin{columns}[T]
+    \column{0.54\textwidth}
+    \textbf{【异常必须放回时间窗口】}
+    \begin{itemize}
+        \item \textbf{时空窗口思维}: 异常不能孤立看待, 需置于当时的时间窗口与波动中裁决.
+        \item \textbf{微观与宏观解法}: 
+            \begin{itemize}
+                \item \textbf{微观分位数截断}: 在单笔订单层级, 使用 1\% 与 99\% 分位点快速打标物理离群值.
+                \item \textbf{宏观时序 Resample}: 将数据按 1 小时网格重新分桶切片, 转化为连续规整的时间序列.
+            \end{itemize}
+        \item \textbf{Rolling 动态 3-Sigma 启发式上界}: 
+            静态阈值会频繁误报.通过 6 小时滑窗动态均值与标准差自适应起伏: 
+            $$\text{Upper Bound} = \text{Mean}_{6h} + 3 \times \text{Std}_{6h}$$
+    \end{itemize}
+
+    \begin{alertblock}{核心结论}
+        \scriptsize 异常不是孤立标签, 而是和上下文比较之后的判断；真正可靠的异常识别, 一定要把订单放回所属时间窗口里看.
+    \end{alertblock}
+
+    \column{0.44\textwidth}
+    \textbf{【时序滑窗动态阈值】}
+    \diagrambox{
+    \textbf{动态 3-Sigma 异常监测链:}\\
+    (1) resample('1h') : 离散订单重采样为时序\\
+    (2) rolling(6)     : 滑动计算近 6h $\mu$ 与 $\sigma$\\
+    (3) 动态上限公式   : Upper = $\mu_{6h} + 3 \times \sigma_{6h}$\\
+    (4) 告警触发判定   : 实际流水 $>$ Upper $\Rightarrow$ 异常尖峰\\
+    -----------------------------------------\\
+    优势: 阈值随早晚高峰自然起伏, 杜绝静态误报
+    }
+    \vspace{2mm}
+\begin{lstlisting}
+ts = clean_taxi.set_index("tpep_pickup_datetime")["total_amount"]
+ts = ts.resample("1h").sum().to_frame("rev")
+ts["mean_6h"] = ts["rev"].rolling(6, min_periods=3).mean()
+ts["std_6h"] = ts["rev"].rolling(6, min_periods=3).std()
+ts["upper"] = ts["mean_6h"] + 3 * ts["std_6h"]
+ts["is_spike"] = np.where(ts["rev"] > ts["upper"], "Spike", "Normal")
+\end{lstlisting}
+\end{columns}
+\end{frame}
+
+% ==================== 模块五: 小模型意图识别微调 ====================
+\section{文本分析进阶: 小模型意图识别微调}
+
+% 第 16 页
+\begin{frame}[fragile]{非结构化数据跃迁: 小模型意图识别任务与数据集认知}{模块五: 模型微调（第 16 页）}
+\begin{columns}[T]
+    \column{0.54\textwidth}
+    \textbf{【先把文本当成数据集】}
+    \begin{itemize}
+        \item \textbf{非结构化跃迁}: 表格存储结构化指标, 而用户真实需求往往存在于自由文本（客服咨询、工单）.
+        \item \textbf{意图识别定位}: 经典判别任务, 将一段文本分类到预定义业务标签, 是智能客服流转的第一道闸门.
+        \item \textbf{教学语料画像}: 金融客服真实语料 1,600 条, 涵盖还款（688）、收支（263）、申卡（185）、优惠（464）4 类.
+        \item \textbf{计算预算}: 文本 P95 长度约 66 字, 截断长度 \texttt{max\_length=80} 已可覆盖 99\% 以上样本, CPU/单卡秒级训练.
+    \end{itemize}
+
+    \begin{alertblock}{核心结论}
+        \scriptsize 文本任务也必须先做数据理解.标签分布、长度分布和清洗规则不清楚, 后面的模型参数基本就是拍脑袋.
+    \end{alertblock}
+
+    \column{0.44\textwidth}
+    \textbf{【意图识别体系链路】}
+    \diagrambox{
+    输入文本: "我想查一下本月信用卡还款金额"\\
+    \ $\downarrow$\\
+    \textbf{MiniRBT-H256} 编码器提取特征\\
+    \ $\downarrow$\\
+    提取 \textbf{[CLS]} 向量 (256 维浓缩语义空间)\\
+    \ $\downarrow$ 线性分类头 + Softmax\\
+    输出置信度: 还款 98.2\% | 收支 1.1\% | 申卡 0.5\%\\
+    \ $\downarrow$\\
+    \textbf{业务分流}: 自动调度至信用卡核心还款系统
+    }
+    \vspace{1mm}
+\begin{lstlisting}
+import pandas as pd, json, unicodedata, re
+def clean_text(s: str) -> str:
+    return re.sub(r"\s+", "", unicodedata.normalize("NFKC", s)).strip()
+records = [json.loads(line) for line in open("../data/train.jsonl", encoding="utf-8")]
+df_text = pd.DataFrame(
+    [{"text": clean_text(d["input"]), "label": d["output"]} for d in records]
+)
+\end{lstlisting}
+\end{columns}
+\end{frame}
+
+% 第 17 页
+\begin{frame}[fragile]{开发环境与工程基石: Conda 隔离与依赖图谱}{模块五: 模型微调（第 17 页）}
+\begin{columns}[T]
+    \column{0.54\textwidth}
+    \textbf{【先把环境隔离出来】}
+    \begin{itemize}
+        \item \textbf{深度学习隔离诉求}: 深度学习强依赖底层 C++/CUDA/OpenBLAS 动态链接库, 宿主全局安装极易引发冲突.
+        \item \textbf{Conda vs venv}: 
+            \begin{itemize}
+                \item 原生 venv: 仅隔离 Python 包, 无法自包含 Python 解释器二进制与非 Python 动态库.
+                \item Conda: 完整打包底层解释器与计算库二进制, 严肃机器学习项目的工业首选.
+            \end{itemize}
+        \item \textbf{极简依赖链哲学}: 剔除庞大分布式依赖, 锁定核心工具栈（Torch + Transformers + ONNX/ONNX Runtime）, 全平台可顺畅复现.
+    \end{itemize}
+
+    \begin{alertblock}{核心结论}
+        \scriptsize 环境不是附属工作, 而是训练链路的一部分.沙箱不稳, 后面的代码、模型和结果都不稳.
+    \end{alertblock}
+
+    \column{0.44\textwidth}
+    \textbf{【依赖图谱与职责拓扑】}
+    \diagrambox{
+    \textbf{Conda 隔离沙箱: minirbt\_intent (Py3.10)}\\
+    |-- 清洗与切分 : pandas, scikit-learn\\
+    |-- 张量与求导 : PyTorch (torch)\\
+    |-- 预训练模型 : transformers (HuggingFace)\\
+    \-- 工业推理库 : onnx, onnxruntime\\[1mm]
+    优势: 自包含底层 C++/CUDA 二进制, 部署稳固
+    }
+    \vspace{2mm}
+\begin{lstlisting}[language=bash]
+conda create -n minirbt_intent python=3.10 -y
+conda activate minirbt_intent
+pip install torch transformers pandas scikit-learn onnx onnxruntime
+\end{lstlisting}
+\end{columns}
+\end{frame}
+
+% 第 18 页
+\begin{frame}[fragile]{微调四部曲（一）: 分层抽样划分与张量化（Tokenization）}{模块五: 模型微调（第 18 页）}
+\begin{columns}[T]
+    \column{0.54\textwidth}
+    \textbf{【先把文本变成张量】}
+    \begin{itemize}
+        \item \textbf{必须坚持分层抽样（Stratify）}: 在类别不平衡场景（还款 688, 申卡 185）, 随机打乱极易导致稀有类在验证集流失, 必须强制 \texttt{stratify=y} 锁死比例.
+        \item \textbf{Tokenization 底层三动作}: 
+            \begin{itemize}
+                \item \textbf{查表映射}: 字/子词切分查 Vocab 映射为整数 ID, 首尾添加特殊标记（[CLS] 表征整句, [SEP] 分隔句末）.
+                \item \textbf{注意力掩码}: 文字位置赋 1, 填充赋 0（屏蔽注意力计算, 免受 0 填料干扰梯度）.
+                \item \textbf{截断与补齐}: 长截短补, 对齐为定长矩阵.
+            \end{itemize}
+    \end{itemize}
+
+    \begin{alertblock}{核心结论}
+        \scriptsize 微调的第一步不是训练, 而是张量流水线.先把字符串稳定地变成模型能接收的整数矩阵, 后面的训练才有意义.
+    \end{alertblock}
+
+    \column{0.44\textwidth}
+    \textbf{【Tokenization 物理流】}
+    \diagrambox{
+    原始文本: "查信用卡账单" (定长 MaxLen = 6)\\
+    \ $\downarrow$ 词表映射与首尾特殊标记注入\\
+    Token序列 : [CLS]  查   信   用   [SEP] [PAD]\\
+    -----------------------------------------\\
+    input\_ids     : [ 101, 334, 456, 789, 102,   0 ]\\
+    attend\_mask   : [   1,   1,   1,   1,   1,   0 ]\\[1mm]
+    说明: PAD 位置掩码置 0, 计算时屏蔽填充干扰
+    }
+    \vspace{2mm}
+\begin{lstlisting}
+from transformers import AutoTokenizer
+train_df, val_df = train_test_split(
+    df_text, test_size=0.2, stratify=df_text["label"], random_state=42
+)
+tk = AutoTokenizer.from_pretrained("hfl/minirbt-h256")
+batch = tk(train_df["text"].tolist()[:16], padding="max_length",
+           truncation=True, max_length=80, return_tensors="pt")
+\end{lstlisting}
+\end{columns}
+\end{frame}
+
+% 第 19 页
+\begin{frame}[fragile]{微调四部曲（二）: 前向传播与交叉熵损失（Loss）}{模块五: 模型微调（第 19 页）}
+\begin{columns}[T]
+    \column{0.54\textwidth}
+    \textbf{【模型先猜, 再算错多少】}
+    \begin{itemize}
+        \item \textbf{底座定位（MiniRBT-H256）}: 紧凑双向编码器, 隐藏层维度 256（原版 BERT 为 768）, 轻量高效.
+        \item \textbf{分类头挂载}: 仅提取全句首个特殊标记 \texttt{[CLS]} 对应的 256 维向量, 输入顶层线性全连接层, 投射为 4 维原始打分（Logits）.
+        \item \textbf{交叉熵损失度量}: 
+            通过 Softmax 将打分映射为概率分布, 损失函数惩罚真实类别 $y$ 所分到的预测概率: 
+            $$\mathcal{L} = -\log p(\text{真实意图} \mid \text{输入文本})$$
+            预测越准 Loss 越趋近 0, 反之 Loss 趋于无穷大.
+    \end{itemize}
+
+    \begin{alertblock}{核心结论}
+        \scriptsize 前向传播可以直白地理解成“模型先猜一次”, 损失函数负责把这次猜测和正确答案之间的差距量化出来.
+    \end{alertblock}
+
+    \column{0.44\textwidth}
+    \textbf{【前向传播计算拓扑】}
+    \diagrambox{
+    input\_ids $\to$ \textbf{MiniRBT} $\to$ [CLS] 表征 (256维)\\
+    \ $\downarrow$ 经过全连接分类头 Linear(256, 4)\\
+    模型打分 Logits: [ 2.8, -0.4, -1.2, -0.8 ]\\
+    \ $\downarrow$ Softmax 概率归一化\\
+    预测概率分布   : [ 0.85,  0.08,  0.04,  0.03 ]\\
+    \ $\downarrow$ 对比真实标签 $y = 0$ (还款)\\
+    交叉熵损失     : $\mathcal{L} = -\ln(0.85) = 0.1625$
+    }
+    \vspace{2mm}
+\begin{lstlisting}
+from transformers import AutoModelForSequenceClassification
+model = AutoModelForSequenceClassification.from_pretrained(
+    "hfl/minirbt-h256", num_labels=4
+)
+outputs = model(input_ids=batch["input_ids"],
+                attention_mask=batch["attention_mask"], labels=target_labels)
+print(f"当前批次损失: {outputs.loss.item():.4f}")
+\end{lstlisting}
+\end{columns}
+\end{frame}
+
+% 第 20 页
+\begin{frame}[fragile]{微调四部曲（三与四）: 反向传播、梯度累积与 AdamW 更新}{模块五: 模型微调（第 20 页）}
+\begin{columns}[T]
+    \column{0.54\textwidth}
+    \textbf{【误差怎样回到参数】}
+    \begin{itemize}
+        \item \textbf{反向传播（Autograd）}: 从标量 Loss 出发, 沿着动态计算图逆向运用链式法则, 计算 Loss 对各层权重矩阵的偏导数（\texttt{grad}）, 实现责任溯源.
+        \item \textbf{梯度累积（Gradient Accumulation）}: 在显存受限设备上, 前向回传多步但不清空梯度, 累加满 $N$ 步后统一更新, 以微小显存模拟大 Batch 稳定性.
+        \item \textbf{AdamW 优化器}: 维护一阶与二阶动量, 自适应调节更新步长, 并解耦真实的 $L_2$ 权重衰减, 避免过拟合.
+        \item \textbf{清空梯度必要性}: PyTorch 默认累加梯度, 必须显式调用 \texttt{zero\_grad()}, 否则导致梯度发散.
+    \end{itemize}
+
+    \begin{alertblock}{核心结论}
+        \scriptsize 反向传播负责回答“谁该为这次错误负责”, 优化器负责根据梯度把参数往正确方向推一步.
+    \end{alertblock}
+
+    \column{0.44\textwidth}
+    \textbf{【反向与更新闭环流】}
+    \diagrambox{
+    前向计算得出标量损失 Loss\\
+    \ $\downarrow$ \textbf{1. loss.backward()}\\
+    链式法则反传梯度: $W.\text{grad} = \partial \mathcal{L} / \partial W$\\
+    \ $\downarrow$ \textbf{2. optimizer.step()}\\
+    AdamW 结合动量与自适应步长更新权重:\\
+    $W \leftarrow W - \eta \cdot \frac{m_t}{\sqrt{v_t} + \epsilon} - \eta \lambda W$\\[1mm]
+    \ $\downarrow$ \textbf{3. optimizer.zero\_grad()}\\
+    彻底抹平旧梯度, 防止污染下一轮迭代
+    }
+    \vspace{2mm}
+\begin{lstlisting}
+from torch.optim import AdamW
+optimizer = AdamW(model.parameters(), lr=2e-5, weight_decay=0.01)
+optimizer.zero_grad()
+loss = model(**batch).loss
+loss.backward()
+optimizer.step()
+\end{lstlisting}
+\end{columns}
+\end{frame}
+
+% ==================== 模块六: 工程落地与轻量化 ====================
+\section{工程落地: 模型轻量化导出、量化与部署推理}
+
+% 第 21 页
+\begin{frame}[fragile]{训练态与推理态的分水岭: 为什么不能直接在线上部署 PyTorch？}{模块六: 工程落地（第 21 页）}
+\begin{columns}[T]
+    \column{0.54\textwidth}
+    \textbf{【能训练不等于能上线】}
+    \begin{itemize}
+        \item \textbf{生产 Serving 的苛刻诉求}: 线上高并发服务追求极低 P99 延迟、微小内存占用与极端运行稳定性.
+        \item \textbf{裸跑 PyTorch Serving 的工程痛点}: 
+            \begin{itemize}
+                \item \textbf{镜像臃肿}: 包含大量反向求导、自动微分等推理完全冗余的代码, 镜像体积数 GB.
+                \item \textbf{GIL 与动态图开销}: Python 解释器锁与动态图构建拖垮吞吐并发.
+                \item \textbf{框架强绑定}: 跨语言微服务（Java/Go/C++）调用成本极高.
+            \end{itemize}
+        \item \textbf{推理固化核心动作}: 永久关闭 Dropout、冻结权重并剥离求导计算图.
+    \end{itemize}
+
+    \begin{alertblock}{核心结论}
+        \scriptsize 训练环境追求的是“能学会”, 部署环境追求的是“跑得稳、跑得快、依赖少”.这两套目标本来就不一样.
+    \end{alertblock}
+
+\column{0.44\textwidth}
+    \textbf{【训练态 vs 推理态全维度剖析】}
+    \vspace{1.5mm}
+
+    {\scriptsize
+    \setlength{\tabcolsep}{3pt}       % 稍微收紧列间距，为文本腾出空间
+    \renewcommand{\arraystretch}{1.2} % 调大行高，避免换行后文字粘连
+    \begin{tabular}{@{}p{1.1cm}p{2.2cm}p{2.5cm}@{}}
+        \toprule
+        \textbf{维度} & \textbf{离线训练态 (Training)} & \textbf{线上推理态 (Serving)} \\
+        \midrule
+        计算流程 & 前向 + 反向 + 参数优化     & 纯前向计算，零梯度图 \\
+        状态依赖 & 维护 Autograd、优化器状态 & 永久冻结权重，关闭 Dropout \\
+        运行时   & 依赖 Python/Torch 庞大套件 & 纯净 C++ 极速引擎 (ONNX Runtime) \\
+        核心指标 & 损失收敛、参数迭代         & P99 毫秒延迟、内存与高吞吐 \\
+        \bottomrule 
+    \end{tabular}
+    }
+    \vspace{2mm}
+\begin{lstlisting}
+model.eval()
+for param in model.parameters():
+    param.requires_grad = False
+\end{lstlisting}
+\end{columns}
+\end{frame}
+
+% 第 22 页
+\begin{frame}[fragile]{跨平台图交换标准: ONNX 格式与计算图固化}{模块六: 工程落地（第 22 页）}
+\begin{columns}[T]
+    \column{0.54\textwidth}
+    \textbf{【把动态图固化成部署图】}
+    \begin{itemize}
+        \item \textbf{ONNX 本质}: 开放神经网络交换格式, 基于 Protobuf 序列化定义通用标准化算子集与计算图.
+        \item \textbf{破除误区: ONNX 不是压缩算法}: 单纯转 ONNX 不会显著减小体积, 其核心价值是将动态执行流“描摹”固化为静态计算拓扑图.
+        \item \textbf{静态图底层优化红利}: 
+            \begin{itemize}
+                \item \textbf{算子融合（Operator Fusion）}: 将“矩阵乘 + 偏置加 + 激活”融合成单一 Kernel, 极大减少显存搬运.
+                \item \textbf{常量折叠}: 编译期预先算好所有静态张量结果.
+            \end{itemize}
+        \item \textbf{动态轴（Dynamic Axes）}: 必须显式声明批次和序列长度动态变化, 防止写死维度导致生产报错.
+    \end{itemize}
+
+    \begin{alertblock}{核心结论}
+        \scriptsize ONNX 不是压缩术, 而是把训练时的动态图固化成一份各个平台都能高效执行的推理图.
+    \end{alertblock}
+
+    \column{0.44\textwidth}
+    \textbf{【ONNX 跨平台分发桥梁】}
+    \diagrambox{
+    \textbf{PyTorch 动态计算图模型}\\
+    \ $\downarrow$ torch.onnx.export (静态符号追踪/算子融合)\\
+    \textbf{静态计算图: model.onnx} (标准协议文件)\\
+    \ |-- Linux 云端服务 : ONNX Runtime / TensorRT\\
+    \ |-- Apple 终端/Mac : CoreML 极速桥接\\
+    \ \-- 跨语言微服务网关 : Java / Go / C++ (C-API直调)
+    }
+    \vspace{1mm}
+\begin{lstlisting}
+sample = tk("还款", padding="max_length", max_length=80, return_tensors="pt")
+axes = {"input_ids": {0: "batch", 1: "seq"}, "logits": {0: "batch"}}
+torch.onnx.export(
+    model.eval(), (sample["input_ids"], sample["attention_mask"]),
+    "artifacts/model.onnx",
+    input_names=["input_ids", "attention_mask"], output_names=["logits"],
+    dynamic_axes=axes, opset_version=17
+)
+\end{lstlisting}
+\end{columns}
+\end{frame}
+
+% 第 23 页
+\begin{frame}[fragile]{极致轻量化: INT8 动态量化的工业奇迹}{模块六: 工程落地（第 23 页）}
+\begin{columns}[T]
+    \column{0.54\textwidth}
+    \textbf{【量化到底在换什么】}
+    \begin{itemize}
+        \item \textbf{位宽压缩物理原理}: 模型训练以 FP32 单精度浮点存储（4 字节/参数）.深度网络对微小扰动容忍度极高, 动态量化将其映射到 1 字节整数 $[-128, 127]$: 
+            $$W_{\text{INT8}} = \text{round}\left( \frac{W_{\text{FP32}}}{\text{Scale}} \right) + \text{ZeroPoint}$$
+        \item \textbf{立竿见影的收益}: 
+            \begin{itemize}
+                \item \textbf{体积直降约 75\%}: 100MB 权重缩减至 25MB, 节省镜像与网络带宽.
+                \item \textbf{CPU 级加速}: 激活硬件专门的向量指令集（如 VNNI、AVX-512 INT8）, 整型计算吞吐远超浮点.
+            \end{itemize}
+        \item \textbf{上线防护与权衡}: 量化引入微弱舍入噪声, 必须比对 FP32 与 INT8 的 F1 指标, 确保精度损失 $<0.5\%$.
+    \end{itemize}
+
+    \begin{alertblock}{核心结论}
+        \scriptsize 量化做的不是“神秘优化”, 而是把一部分高精度权重换成更便宜的数值表示, 用少量精度代价换体积和速度红利.
+    \end{alertblock}
+
+    \column{0.44\textwidth}
+    \textbf{【FP32 与 INT8 内存占位对照】}
+    \diagrambox{
+    \textbf{单精度浮点 (FP32)} : 4 字节 / 参数\\
+    {}[ 符 1b | 指数 8b | 尾数 23b ] $\to$ 基准体积 100MB\\[1.5mm]
+    \textbf{低比特整型 (INT8)} : 1 字节 / 参数\\
+    {}[ 8-bit 有符号整数 ] $\to$ 压缩至 25MB (降 75\%!)\\[1mm]
+    -----------------------------------------\\
+    计算收益: 激活 CPU VNNI/AVX-512 整型加速指令\\
+    数值还原: $W \approx \text{Scale} \times (W_{\text{int8}} - \text{ZeroPoint})$
+    }
+    \vspace{2mm}
+\begin{lstlisting}
+from onnxruntime.quantization import quantize_dynamic, QuantType
+quantize_dynamic(
+    model_input="artifacts/model.onnx",
+    model_output="artifacts/model.int8.onnx",
+    weight_type=QuantType.QInt8,
+)
+\end{lstlisting}
+\end{columns}
+\end{frame}
+
+% 第 24 页
+\begin{frame}[fragile]{生产级部署实战: 基于 ONNX Runtime 的轻量推理引擎}{模块六: 工程落地（第 24 页）}
+\begin{columns}[T]
+    \column{0.54\textwidth}
+    \textbf{【部署端只保留前向链路】}
+    \begin{itemize}
+        \item \textbf{斩断 PyTorch 生产依赖}: 生产 Docker 容器完全无需安装庞大的 \texttt{torch}, 仅需极轻量的 C++ 运行时绑定 \texttt{onnxruntime} 与基础 \texttt{numpy}.
+        \item \textbf{纯粹推理三步闭环}: 
+            \begin{enumerate}
+                \item \textbf{分词预处理}: 词表查表直接输出原生 NumPy 数组；
+                \item \textbf{会话前向执行}: 数组直接注入编译优化的 ONNX Runtime 引擎, 毫秒级输出 Logits；
+                \item \textbf{后处理决策}: \texttt{np.argmax} 提取极值索引, 查表输出业务中文标签.
+            \end{enumerate}
+        \item \textbf{极致低延迟}: 零额外对象分配, 消除 Python 解释器动态图构建损耗, CPU 单句延迟仅需数毫秒.
+    \end{itemize}
+
+    \begin{alertblock}{核心结论}
+        \scriptsize 真正的部署端不需要优化器、不需要反向传播, 甚至不需要 torch；它只保留输入、前向执行和结果映射这条最短路径.
+    \end{alertblock}
+
+    \column{0.44\textwidth}
+    \textbf{【生产推理极简流水线】}
+    \diagrambox{
+    输入: "我想查一下这个月信用卡要还多少钱"\\
+    \ $\downarrow$ \textbf{1. 轻量 Tokenizer 查表} (输出 NumPy 数组)\\
+    feeds = \{"input\_ids": arr, "attention\_mask": arr\}\\
+    \ $\downarrow$ \textbf{2. ONNX Runtime 执行核心} (C++ 静态优化)\\
+    session.run() $\to$ Logits: [4.21, -1.02, ... ]\\
+    \ $\downarrow$ \textbf{3. np.argmax 索引映射业务字典}\\
+    识别意图: \textbf{"还款"} (端到端耗时仅 $\sim$3ms)
+    }
+    \vspace{1mm}
+\begin{lstlisting}
+import onnxruntime as ort, numpy as np
+from transformers import AutoTokenizer
+tk = AutoTokenizer.from_pretrained("artifacts/tokenizer")
+sess = ort.InferenceSession("artifacts/model.int8.onnx", providers=["CPUExecutionProvider"])
+inputs = tk("查账单", padding="max_length", max_length=80, return_tensors="np")
+feeds = {k: inputs[k] for k in ["input_ids", "attention_mask"]}
+label = ["还款", "收支", "申卡", "优惠"][np.argmax(sess.run(["logits"], feeds)[0])]
+\end{lstlisting}
+\end{columns}
+\end{frame}
+
+% ==================== 模块七: 课程全景收敛 ====================
+\section{课程全景收敛与架构总结}
+
+% 第 25 页
+\begin{frame}[fragile]{技术全景大闭环: 从底层硬件连续到业务价值变现}{模块七: 技术全景收敛（第 25 页）}
+\begin{columns}[T]
+    \column{0.54\textwidth}
+    \textbf{【把整门课串成一条链】}
+    \begin{itemize}
+        \item \textbf{NumPy 解决物理吞吐}: 连续 Buffer、Strides 步长、SIMD 硬件加速颠覆原生低效循环.
+        \item \textbf{Pandas 赋能业务语义}: Index 自动对齐、列 Schema、缺失防御与关系代数透视.
+        \item \textbf{文本微调突破非结构化}: MiniRBT 语义编码、交叉熵 Loss、反向责任溯源与稳健更新.
+        \item \textbf{ONNX 实现工业闭环}: 计算图静态化、算子融合、INT8 动态量化驱动极速高并发 Serving.
+        \item \textbf{工程师真正壁垒}: 深刻理解每一行代码在物理内存和硬件流水线中的真实代价, 优雅权衡开发效率、延迟与精度.
+    \end{itemize}
+
+    \column{0.44\textwidth}
+    \textbf{【全课程端到端拓扑】}
+    \diagrambox{
+    \textbf{现实业务需求} (结构化大数据 / 非结构化文本)\\
+    |-- 存储基石 : Parquet 列式二进制 (谓词下推/跳读)\\
+    |-- 计算内核 : NumPy (连续内存 / 步长 / 广播 / SIMD)\\
+    |-- 业务语义 : Pandas (Index 对齐 / 关系代数)\\
+    |-- 文本微调 : MiniRBT (分层抽样 / 交叉熵 / AdamW)\\
+    \-- 工业部署 : ONNX Runtime (INT8量化 / 极速Serving)
+    }
+    \vspace{1mm}
+\begin{lstlisting}
+# 结构化分析 / 模型更新 / 部署交付
+df.query("amt > 0").groupby("hour")["amt"].transform("mean")
+loss = model(**batch).loss; loss.backward(); optimizer.step()
+quantize_dynamic("m.onnx", "m.int8.onnx"); session.run(None, inputs)
+\end{lstlisting}
+    \begin{alertblock}{课程收束}
+        \scriptsize Python 是这个时代的胶水, 而你们今天掌握的, 是这瓶胶水里最硬核的骨架与灵魂.带着对底层内存的敬畏去征服生产系统！
+    \end{alertblock}
+\end{columns}
+\end{frame}
+
+\end{document} 
